@@ -252,15 +252,15 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         key_abs = abs_path_of(key_file)
-        with _server_lock:
-            if _server is not None and _server.is_running:
-                self._send_json({"error": "服务已在运行"}, 400)
-                return
-            try:
-                start_sftp_server(host, port, key_file)
-            except Exception as e:
-                self._send_json({"error": "启动失败: {}".format(e)}, 500)
-                return
+        # 注意：start_sftp_server 内部已持有 _server_lock（幂等），此处不可再嵌套加锁，否则死锁
+        if _server is not None and _server.is_running:
+            self._send_json({"error": "服务已在运行"}, 400)
+            return
+        try:
+            start_sftp_server(host, port, key_file)
+        except Exception as e:
+            self._send_json({"error": "启动失败: {}".format(e)}, 500)
+            return
         self._send_json({"ok": True, "host": host, "port": port})
 
     def _api_stop(self):
