@@ -99,3 +99,4 @@ pyinstaller --onefile --windowed --name SftpServerTool --collect-all paramiko we
 ```
 
 `permission` 取值：`readwrite`（读写）/ `readonly`（只读）。
+
