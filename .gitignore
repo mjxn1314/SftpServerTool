@@ -1,0 +1,18 @@
+# 主机私钥：切勿提交
+host_key
+
+# 用户数据（含密码哈希）：不提交
+users.json
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# PyInstaller 构建产物
+build/
+dist/
+*.spec
+
+# 临时文件
+*.log
+py_build_log.txt

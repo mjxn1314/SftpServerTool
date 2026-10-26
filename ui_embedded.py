@@ -1,0 +1,481 @@
+UI_HTML = r""""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SFTP 服务器管理工具</title>
+<style>
+  :root {
+    --bg: #f2f4f7;
+    --card: #ffffff;
+    --line: #e2e6ec;
+    --text: #1f2933;
+    --muted: #6b7683;
+    --accent: #2563eb;
+    --accent-dark: #1d4ed8;
+    --danger: #dc2626;
+    --ok: #16a34a;
+    --warn: #d97706;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 14px; line-height: 1.5;
+  }
+  .topbar {
+    background: var(--card); border-bottom: 1px solid var(--line);
+    padding: 14px 24px; display: flex; align-items: center; gap: 16px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .topbar h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 999px;
+    background: #eef1f5; color: var(--muted); font-size: 13px;
+  }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .badge.running { background: #e8f7ee; color: var(--ok); }
+  .badge.stopped { background: #f4f4f5; color: var(--muted); }
+  .wrap { max-width: 1080px; margin: 20px auto 40px; padding: 0 20px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 18px 20px; margin-bottom: 16px;
+  }
+  .card h2 { margin: 0 0 14px; font-size: 15px; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .row label { min-width: 70px; color: var(--muted); }
+  input[type=text], input[type=number], input[type=password], select {
+    border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px;
+    font-size: 14px; background: #fff; color: var(--text); outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input.wide { flex: 1; min-width: 160px; }
+  .btn {
+    border: 1px solid var(--line); background: #fff; color: var(--text);
+    border-radius: 6px; padding: 7px 16px; font-size: 14px; cursor: pointer;
+  }
+  .btn:hover { background: #f5f7fa; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn-danger:hover { filter: brightness(.92); }
+  .btn-sm { padding: 4px 10px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; }
+  td .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px;
+  }
+  .tag.rw { background: #e8f7ee; color: var(--ok); }
+  .tag.ro { background: #fef3e2; color: var(--warn); }
+  .tag.on { background: #e8f0fe; color: var(--accent); }
+  .tag.off { background: #f4f4f5; color: var(--muted); }
+  .actions { display: flex; gap: 6px; }
+  .logbox {
+    background: #14171c; color: #c9d3e0; border-radius: 8px;
+    padding: 10px 12px; height: 300px; overflow-y: auto;
+    font-family: Consolas, "Courier New", monospace; font-size: 12.5px;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .logbox .t { color: #5b6b7f; margin-right: 6px; }
+  .empty { color: var(--muted); text-align: center; padding: 16px 0; }
+  /* modal */
+  .mask {
+    position: fixed; inset: 0; background: rgba(15,20,30,.45);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  .mask.show { display: flex; }
+  .dialog {
+    background: #fff; border-radius: 12px; width: 440px; max-width: 92vw;
+    padding: 22px 24px; box-shadow: 0 20px 50px rgba(0,0,0,.2);
+  }
+  .dialog h3 { margin: 0 0 16px; font-size: 16px; }
+  .dialog .row label { min-width: 72px; }
+  .dialog .hint { color: var(--muted); font-size: 12px; margin: 4px 0 0 82px; }
+  .dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  .msg {
+    display: none; padding: 9px 14px; border-radius: 6px; margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .msg.show { display: block; }
+  .msg.err { background: #fdecec; color: #b91c1c; }
+  .msg.ok { background: #e8f7ee; color: #166534; }
+  .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>SFTP 服务器管理工具</h1>
+  <span class="badge stopped" id="badge"><span class="dot"></span><span id="badgeText">未启动</span></span>
+  <span style="flex:1"></span>
+  <span id="keyHint" style="color:var(--muted);font-size:12px"></span>
+</div>
+
+<div class="wrap">
+
+  <div class="msg" id="msg"></div>
+
+  <div class="grid">
+    <!-- 服务设置 -->
+    <div class="card">
+      <h2>服务设置</h2>
+      <div class="row">
+        <label>监听地址</label>
+        <input type="text" id="cfgHost" class="wide" value="0.0.0.0" placeholder="0.0.0.0 表示允许所有网卡">
+      </div>
+      <div class="row">
+        <label>端口</label>
+        <input type="number" id="cfgPort" min="1" max="65535" value="2222" style="width:120px">
+      </div>
+      <div class="row">
+        <label>主机密钥</label>
+        <input type="text" id="cfgKey" class="wide" value="host_key">
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn btn-primary" id="btnStart">启动服务</button>
+        <button class="btn btn-danger" id="btnStop" disabled>停止服务</button>
+        <button class="btn" id="btnKey">重新生成密钥</button>
+      </div>
+    </div>
+
+    <!-- 运行日志 -->
+    <div class="card" style="display:flex;flex-direction:column">
+      <h2>运行日志</h2>
+      <div class="logbox" id="logbox"><div class="empty">暂无日志</div></div>
+    </div>
+  </div>
+
+  <!-- 用户管理 -->
+  <div class="card">
+    <h2>用户管理</h2>
+    <div style="margin-bottom:12px">
+      <button class="btn btn-primary" id="btnAdd">添加用户</button>
+      <button class="btn" id="btnEdit">编辑</button>
+      <button class="btn btn-danger" id="btnDel">删除</button>
+      <span style="color:var(--muted);font-size:12px;margin-left:10px">
+        每个用户仅可访问自己的根目录；读写权限可选「读写 / 只读」
+      </span>
+    </div>
+    <table id="userTable">
+      <thead>
+        <tr><th>用户名</th><th>根目录</th><th>权限</th><th>状态</th><th>备注</th><th style="width:60px"></th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="empty" id="userEmpty" style="display:none">暂无用户，点击「添加用户」创建</div>
+  </div>
+
+  <div class="foot">本地管理界面（仅绑定 127.0.0.1）。关闭命令行窗口即退出工具，SFTP 服务随之停止。</div>
+</div>
+
+<!-- 用户编辑对话框 -->
+<div class="mask" id="mask">
+  <div class="dialog">
+    <h3 id="dlgTitle">添加用户</h3>
+    <div class="row">
+      <label>用户名 *</label>
+      <input type="text" id="fUser" class="wide">
+    </div>
+    <div class="row">
+      <label>密码 *</label>
+      <input type="password" id="fPw" class="wide">
+    </div>
+    <div class="row">
+      <label>确认密码</label>
+      <input type="password" id="fPw2" class="wide">
+    </div>
+    <div class="row">
+      <label>根目录 *</label>
+      <input type="text" id="fRoot" class="wide" placeholder="如 D:\sftp\u1">
+    </div>
+    <div class="row">
+      <label>权限</label>
+      <select id="fPerm" style="width:160px">
+        <option value="readwrite">读写</option>
+        <option value="readonly">只读</option>
+      </select>
+    </div>
+    <div class="row">
+      <label></label>
+      <label style="min-width:0;display:inline-flex;align-items:center;gap:6px">
+        <input type="checkbox" id="fEnabled" checked> 启用该用户
+      </label>
+    </div>
+    <div class="row">
+      <label></label>
+      <label style="min-width:0;display:inline-flex;align-items:center;gap:6px">
+        <input type="checkbox" id="fMkdir" checked> 根目录不存在时自动创建
+      </label>
+    </div>
+    <div class="row">
+      <label>备注</label>
+      <input type="text" id="fNote" class="wide">
+    </div>
+    <div class="hint" style="margin:6px 0 0 82px" id="pwHint"></div>
+    <div class="dlg-actions">
+      <button class="btn" id="btnCancel">取消</button>
+      <button class="btn btn-primary" id="btnSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const TOKEN = "__AUTH_TOKEN__";
+let editing = null;             // 正在编辑的用户名，null 表示添加
+let cursor = 0;                 // 日志游标
+
+const $ = (id) => document.getElementById(id);
+
+function flash(msg, ok) {
+  const el = $("msg");
+  el.textContent = msg;
+  el.className = "msg show " + (ok ? "ok" : "err");
+  clearTimeout(flash._t);
+  flash._t = setTimeout(() => el.className = "msg", 4000);
+}
+
+async function api(path, method, body) {
+  const opt = { method: method || "GET", headers: { "X-Auth-Token": TOKEN } };
+  if (body !== undefined) {
+    opt.headers["Content-Type"] = "application/json";
+    opt.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opt);
+  let data = {};
+  try { data = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(data.error || ("请求失败 " + r.status));
+  return data;
+}
+
+// ---- 状态 ----
+async function refreshStatus() {
+  try {
+    const s = await api("/api/status");
+    const badge = $("badge"), txt = $("badgeText");
+    if (s.running) {
+      badge.className = "badge running";
+      txt.textContent = "运行中 " + s.host + ":" + s.port;
+      $("btnStart").disabled = true;
+      $("btnStop").disabled = false;
+      $("cfgHost").disabled = $("cfgPort").disabled = true;
+    } else {
+      badge.className = "badge stopped";
+      txt.textContent = "未启动";
+      $("btnStart").disabled = false;
+      $("btnStop").disabled = true;
+      $("cfgHost").disabled = $("cfgPort").disabled = false;
+    }
+    $("keyHint").textContent = "密钥文件：" + s.key;
+    // 仅在初始加载时填充配置输入框
+    if (!refreshStatus._inited) {
+      $("cfgHost").value = s.config.host || "0.0.0.0";
+      $("cfgPort").value = s.config.port || 2222;
+      $("cfgKey").value = s.config.key_file || "host_key";
+      refreshStatus._inited = true;
+    }
+  } catch (e) {
+    badge.className = "badge stopped";
+    $("badgeText").textContent = "未启动";
+  }
+}
+
+// ---- 用户 ----
+async function refreshUsers() {
+  const s = await api("/api/users");
+  const tb = $("userTable").querySelector("tbody");
+  tb.innerHTML = "";
+  const empty = $("userEmpty");
+  if (!s.users.length) { empty.style.display = "block"; return; }
+  empty.style.display = "none";
+  s.users.forEach(u => {
+    const tr = document.createElement("tr");
+    tr.dataset.user = u.username;
+    tr.innerHTML =
+      "<td><b>" + esc(u.username) + "</b></td>" +
+      "<td>" + esc(u.root) + "</td>" +
+      "<td><span class='tag " + (u.permission === "readwrite" ? "rw" : "ro") + "'>" +
+        (u.permission === "readwrite" ? "读写" : "只读") + "</span></td>" +
+      "<td><span class='tag " + (u.enabled ? "on" : "off") + "'>" +
+        (u.enabled ? "启用" : "禁用") + "</span></td>" +
+      "<td>" + esc(u.note || "") + "</td>" +
+      "<td><span class='actions'><button class='btn btn-sm' data-act='edit'>编辑</button>" +
+      "<button class='btn btn-sm btn-danger' data-act='del'>删除</button></span></td>";
+    tb.appendChild(tr);
+  });
+}
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ---- 日志 ----
+async function pollLogs() {
+  try {
+    const s = await api("/api/logs?after=" + cursor);
+    if (s.logs.length) {
+      const box = $("logbox");
+      if (box.querySelector(".empty")) box.innerHTML = "";
+      const d = new Date();
+      s.logs.forEach(m => {
+        const line = document.createElement("div");
+        line.innerHTML = "<span class='t'>" + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()) + "</span> " + esc(m);
+        box.appendChild(line);
+      });
+      box.scrollTop = box.scrollHeight;
+      cursor = s.cursor;
+    }
+  } catch (e) {}
+  setTimeout(pollLogs, 1000);
+}
+function pad(n) { return String(n).padStart(2, "0"); }
+
+// ---- 启停 ----
+async function startServer() {
+  try {
+    await api("/api/start", "POST", {
+      host: $("cfgHost").value.trim(),
+      port: parseInt($("cfgPort").value, 10),
+      key_file: $("cfgKey").value.trim()
+    });
+    flash("服务已启动", true);
+    refreshStatus();
+  } catch (e) { flash(e.message, false); }
+}
+async function stopServer() {
+  try {
+    await api("/api/stop", "POST");
+    flash("服务已停止", true);
+    refreshStatus();
+  } catch (e) { flash(e.message, false); }
+}
+async function regenKey() {
+  if (!confirm("将覆盖现有主机密钥文件，确定继续？")) return;
+  try {
+    await api("/api/key/regenerate", "POST", { key_file: $("cfgKey").value.trim() });
+    flash("主机密钥已重新生成", true);
+  } catch (e) { flash(e.message, false); }
+}
+
+// ---- 用户对话框 ----
+function openDlg(user) {
+  editing = user ? user.username : null;
+  $("dlgTitle").textContent = user ? "编辑用户 - " + user.username : "添加用户";
+  $("fUser").value = user ? user.username : "";
+  $("fUser").disabled = !!user;
+  $("fPw").value = $("fPw2").value = "";
+  $("fRoot").value = user ? user.root : "";
+  $("fPerm").value = user ? user.permission : "readwrite";
+  $("fEnabled").checked = user ? user.enabled : true;
+  $("fMkdir").checked = true;
+  $("fNote").value = user ? (user.note || "") : "";
+  $("pwHint").textContent = user ? "密码留空表示不修改" : "";
+  $("mask").classList.add("show");
+  $("fUser").focus();
+}
+function closeDlg() { $("mask").classList.remove("show"); }
+
+async function saveUser() {
+  const username = $("fUser").value.trim();
+  const pw = $("fPw").value, pw2 = $("fPw2").value;
+  const root = $("fRoot").value.trim();
+  if (!username) return flash("请输入用户名", false);
+  if (!editing && !pw) return flash("请输入密码", false);
+  if (pw !== pw2) return flash("两次输入的密码不一致", false);
+  if (!root) return flash("请输入根目录", false);
+
+  const body = {
+    root, permission: $("fPerm").value,
+    enabled: $("fEnabled").checked,
+    auto_create: $("fMkdir").checked,
+    note: $("fNote").value.trim()
+  };
+  try {
+    if (editing) {
+      if (pw) body.new_password = pw;
+      await api("/api/users/" + encodeURIComponent(editing), "PUT", body);
+      flash("用户已更新", true);
+    } else {
+      body.username = username; body.password = pw;
+      await api("/api/users", "POST", body);
+      flash("用户已添加", true);
+    }
+    closeDlg();
+    refreshUsers();
+  } catch (e) { flash(e.message, false); }
+}
+
+async function deleteUser(name) {
+  if (!confirm("确定删除用户 " + name + " 吗？（根目录中的文件不会删除）")) return;
+  try {
+    await api("/api/users/" + encodeURIComponent(name), "DELETE");
+    flash("用户已删除", true);
+    refreshUsers();
+  } catch (e) { flash(e.message, false); }
+}
+
+// ---- 事件绑定 ----
+$("btnStart").addEventListener("click", startServer);
+$("btnStop").addEventListener("click", stopServer);
+$("btnKey").addEventListener("click", regenKey);
+$("btnAdd").addEventListener("click", () => openDlg(null));
+$("btnEdit").addEventListener("click", () => {
+  const tr = selectedRow();
+  if (!tr) return flash("请先选中一个用户", false);
+  openDlg({ username: tr.dataset.user });
+});
+$("btnDel").addEventListener("click", () => {
+  const tr = selectedRow();
+  if (!tr) return flash("请先选中一个用户", false);
+  deleteUser(tr.dataset.user);
+});
+$("btnSave").addEventListener("click", saveUser);
+$("btnCancel").addEventListener("click", closeDlg);
+$("mask").addEventListener("click", (e) => { if (e.target === $("mask")) closeDlg(); });
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeDlg();
+});
+
+function selectedRow() {
+  return document.querySelector("#userTable tbody tr.selected");
+}
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  const tr = btn.closest("tr");
+  if (!tr || !tr.dataset.user) return;
+  document.querySelectorAll("#userTable tbody tr").forEach(r => r.classList.remove("selected"));
+  tr.classList.add("selected");
+  if (btn.dataset.act === "edit") openDlg({ username: tr.dataset.user, enabled: true });
+  if (btn.dataset.act === "del") deleteUser(tr.dataset.user);
+});
+document.querySelectorAll("#userTable tbody tr").forEach(() => {});
+// 行内按钮与行点击均使用事件委托（由上面 document 级监听处理）
+// 行点击选中
+document.addEventListener("click", (e) => {
+  const tr = e.target.closest("#userTable tbody tr");
+  if (tr) {
+    document.querySelectorAll("#userTable tbody tr").forEach(r => r.classList.remove("selected"));
+    tr.classList.add("selected");
+  }
+});
+// 双击行编辑
+document.addEventListener("dblclick", (e) => {
+  const tr = e.target.closest("#userTable tbody tr");
+  if (tr) openDlg({ username: tr.dataset.user });
+});
+refreshStatus();
+refreshUsers().catch(() => {});
+pollLogs();
+setInterval(refreshStatus, 2000);
+setInterval(() => refreshUsers().catch(() => {}), 3000);
+</script>
+</body>
+</html>
+"""
