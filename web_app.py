@@ -257,12 +257,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"error": "服务已在运行"}, 400)
                 return
             try:
-                srv = SftpServer(host, port, key_abs, _users, log=_log_cb)
-                srv.start()
+                start_sftp_server(host, port, key_file)
             except Exception as e:
                 self._send_json({"error": "启动失败: {}".format(e)}, 500)
                 return
-            _server = srv
         self._send_json({"ok": True, "host": host, "port": port})
 
     def _api_stop(self):
@@ -381,6 +379,19 @@ def pick_port(start):
     raise RuntimeError("找不到可用端口（18080-18129 均被占用）")
 
 
+def start_sftp_server(host, port, key_file):
+    """启动 SFTP 服务（幂等：已在运行则直接返回当前实例）。供界面 API 与 Windows 服务模式共用。"""
+    global _server
+    key_abs = abs_path_of(key_file)
+    with _server_lock:
+        if _server is not None and _server.is_running:
+            return _server
+        srv = SftpServer(host, port, key_abs, _users, log=_log_cb)
+        srv.start()
+        _server = srv
+        return srv
+
+
 def main():
     try:
         init_users()
@@ -389,6 +400,7 @@ def main():
         sys.exit(1)
     args = sys.argv[1:]
     no_browser = "--no-browser" in args
+    auto_start = "--auto-start" in args
     port = DEFAULT_WEB_PORT
     try:
         i = args.index("--port")
@@ -409,6 +421,16 @@ def main():
             webbrowser.open(url)
         except Exception:
             pass
+    if auto_start:
+        cfg = load_config()
+        try:
+            srv = start_sftp_server(cfg.get("host") or "0.0.0.0",
+                                    int(cfg.get("port") or 2222),
+                                    cfg.get("key_file") or "host_key")
+            _log_cb("服务随程序自动启动：监听 {}:{}".format(srv.host, srv.port))
+            print("SFTP 服务已自动启动：{}:{}".format(srv.host, srv.port))
+        except Exception as e:
+            print("自动启动 SFTP 服务失败：{}".format(e))
     try:
         while True:
             time.sleep(3600)

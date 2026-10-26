@@ -69,6 +69,24 @@ python test_smoke.py      # 核心功能：认证、上传下载、chroot、只�
 python web_api_smoke.py   # Web 界面：页面/令牌/用户管理/启停/端到端（10 项）
 ```
 
+## 安装为 Windows 服务（开机自启、后台常驻）
+
+将工具注册为系统服务后，SFTP 服务与管理界面随系统启动，无需登录、无需打开窗口。
+以管理员身份打开 PowerShell（或命令行），在源码目录执行：
+
+```powershell
+pip install pywin32
+python svc_sftpserver.py install     # 安装服务
+python svc_sftpserver.py start       # 启动服务
+python svc_sftpserver.py stop        # 停止服务
+python svc_sftpserver.py remove      # 卸载服务
+```
+
+- 服务名：`SftpServerTool`（可在 services.msc 中查看，已配置失败自动重启）
+- 服务模式下 SFTP 服务（默认 `0.0.0.0:2222`）与本地管理界面（`127.0.0.1:18080`）随服务自动启动
+- 用户管理仍在管理界面中操作：浏览器打开 `http://127.0.0.1:18080`
+- 停止服务：`net stop SftpServerTool`；卸载：`sc delete SftpServerTool`
+
 ## 可选：打包为独立 EXE（免 Python 环境）
 
 ```powershell
