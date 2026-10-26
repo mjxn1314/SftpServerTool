@@ -87,6 +87,25 @@ python svc_sftpserver.py remove      # 卸载服务
 - 用户管理仍在管理界面中操作：浏览器打开 `http://127.0.0.1:18080`
 - 停止服务：`net stop SftpServerTool`；卸载：`sc delete SftpServerTool`
 
+## 将打包的 EXE 安装为 Windows 服务（免 Python 依赖）
+
+已打包的 `dist\SftpServerTool.exe` 可通过 NSSM 注册为系统服务（`nssm.exe` 已随工具提供）：
+
+```powershell
+# 管理员 PowerShell，在工具目录执行：
+.\nssm.exe install SftpServerToolSvc ".\dist\SftpServerTool.exe" "--no-browser" "--auto-start" "--port" "18080"
+.\nssm.exe set SftpServerToolSvc AppDirectory ".\dist"
+.\nssm.exe set SftpServerToolSvc Start SERVICE_AUTO_START
+.\nssm.exe set SftpServerToolSvc AppExit Default Restart
+net start SftpServerToolSvc
+```
+
+- EXE 服务模式下 SFTP（`0.0.0.0:2222`）与管理界面（`127.0.0.1:18080`）随服务自动启动
+- 数据文件（config.json / users.json / host_key）生成于 `dist` 目录（exe 旁）
+- 停止：`net stop SftpServerToolSvc`；卸载：`.\nssm.exe remove SftpServerToolSvc confirm`
+
+> 提示：源码版服务（`SftpServerTool`，pywin32）与 EXE 服务（`SftpServerToolSvc`，NSSM）二选一，避免端口冲突；删除源码版服务用 `sc delete SftpServerTool`。
+
 ## 可选：打包为独立 EXE（免 Python 环境）
 
 ```powershell
